@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Номограмма: прогноз летальности (3-и сутки)</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #F7F6F2; color: #28251D; line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container { max-width: 820px; margin: 0 auto; padding: 24px 20px; }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; color: #28251D; }
+  .subtitle { font-size: 13px; color: #7A7974; margin-bottom: 24px; }
+  
+  .card {
+    background: #fff; border-radius: 12px; padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 16px;
+    border: 1px solid #E8E7E3;
+  }
+  .card-title { font-size: 14px; font-weight: 600; color: #7A7974; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 16px; }
+  
+  .input-group { margin-bottom: 20px; }
+  .input-group:last-child { margin-bottom: 0; }
+  .input-label { display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 6px; }
+  .input-label .name { font-weight: 600; font-size: 15px; }
+  .input-label .desc { font-size: 12px; color: #7A7974; }
+  .input-label .value { font-size: 18px; font-weight: 700; color: #01696F;
+    font-variant-numeric: tabular-nums; min-width: 60px; text-align: right; }
+  
+  input[type=range] {
+    -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px;
+    background: #E8E7E3; outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+    background: #01696F; cursor: pointer; border: 3px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #01696F; cursor: pointer; border: 3px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  
+  .d3-buttons { display: flex; gap: 8px; }
+  .d3-btn {
+    flex: 1; padding: 10px 0; text-align: center; font-size: 16px; font-weight: 600;
+    border: 2px solid #D4D1CA; border-radius: 8px; cursor: pointer;
+    background: #fff; color: #28251D; transition: all 0.15s;
+  }
+  .d3-btn:hover { border-color: #01696F; background: #F0FAFB; }
+  .d3-btn.active { border-color: #01696F; background: #01696F; color: #fff; }
+  
+  .result-big {
+    text-align: center; padding: 24px 0;
+  }
+  .result-big .prob-value {
+    font-size: 56px; font-weight: 800; line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .result-big .prob-label { font-size: 14px; color: #7A7974; margin-top: 4px; }
+  
+  .risk-bar {
+    height: 10px; border-radius: 5px; margin: 16px 0 8px 0;
+    background: linear-gradient(90deg, #437A22 0%, #D19900 40%, #A84B2F 65%, #A12C7B 100%);
+    position: relative;
+  }
+  .risk-marker {
+    position: absolute; top: -6px; width: 22px; height: 22px;
+    border-radius: 50%; border: 3px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3); transform: translateX(-50%);
+    transition: left 0.2s, background 0.2s;
+  }
+  .risk-text { text-align: center; font-size: 15px; font-weight: 600; margin-top: 4px; }
+  
+  .points-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .points-table th { text-align: left; font-weight: 600; color: #7A7974; padding: 6px 8px;
+    border-bottom: 2px solid #E8E7E3; font-size: 12px; text-transform: uppercase; }
+  .points-table td { padding: 8px; border-bottom: 1px solid #F0EFEB; }
+  .points-table .pts { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .points-table .bar-cell { width: 40%; }
+  .points-bar { height: 8px; border-radius: 4px; transition: width 0.2s; }
+  
+  .equation-box {
+    background: #F7F6F2; border-radius: 8px; padding: 14px 16px;
+    font-family: 'Courier New', monospace; font-size: 13px;
+    color: #28251D; margin-top: 12px; line-height: 1.8;
+    overflow-x: auto;
+  }
+  
+  .save-btn {
+    display: block; width: 100%; padding: 12px; border: none; border-radius: 8px;
+    background: #01696F; color: #fff; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .save-btn:hover { background: #0C4E54; }
+  
+  #report-output {
+    width: 100%; min-height: 100px; border: 1px solid #D4D1CA; border-radius: 8px;
+    padding: 12px; font-size: 13px; font-family: monospace; resize: vertical;
+    margin-top: 12px; background: #FBFBF9; color: #28251D;
+    display: none;
+  }
+  
+  .footer { text-align: center; font-size: 11px; color: #BAB9B4; margin-top: 24px; padding-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Прогноз летального исхода на 3-и сутки</h1>
+  <p class="subtitle">Логистическая регрессия: Outcome ~ M_3 + T_3 + D_3 (без учёта дозы)</p>
+  
+  <!-- INPUT CARD -->
+  <div class="card">
+    <div class="card-title">Параметры</div>
+    
+    <div class="input-group">
+      <div class="input-label">
+        <span><span class="name">M_3</span> <span class="desc">— Масса тела, % от исходной</span></span>
+        <span class="value" id="m3-val">95.0</span>
+      </div>
+      <input type="range" id="m3-slider" min="75" max="115" step="0.5" value="95">
+    </div>
+    
+    <div class="input-group">
+      <div class="input-label">
+        <span><span class="name">T_3</span> <span class="desc">— Ректальная температура, °C</span></span>
+        <span class="value" id="t3-val">36.0</span>
+      </div>
+      <input type="range" id="t3-slider" min="24" max="40" step="0.1" value="36">
+    </div>
+    
+    <div class="input-group">
+      <div class="input-label">
+        <span><span class="name">D_3</span> <span class="desc">— Выраженность диареи, баллы</span></span>
+        <span class="value" id="d3-val">0</span>
+      </div>
+      <div class="d3-buttons">
+        <div class="d3-btn active" data-value="0">0</div>
+        <div class="d3-btn" data-value="1">1</div>
+        <div class="d3-btn" data-value="2">2</div>
+        <div class="d3-btn" data-value="3">3</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- RESULT CARD -->
+  <div class="card">
+    <div class="card-title">Результат</div>
+    <div class="result-big">
+      <div class="prob-value" id="prob-display">—</div>
+      <div class="prob-label">вероятность летального исхода</div>
+    </div>
+    <div class="risk-bar">
+      <div class="risk-marker" id="risk-marker"></div>
+    </div>
+    <div class="risk-text" id="risk-text">—</div>
+  </div>
+  
+  <!-- POINTS BREAKDOWN -->
+  <div class="card">
+    <div class="card-title">Вклад предикторов в итоговый балл</div>
+    <table class="points-table">
+      <thead>
+        <tr><th>Предиктор</th><th>Значение</th><th class="pts">Баллы</th><th class="bar-cell">Доля</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="color:#20808D;font-weight:600">M_3</td>
+          <td id="pt-m3-val">—</td>
+          <td class="pts" id="pt-m3">—</td>
+          <td class="bar-cell"><div class="points-bar" id="bar-m3" style="background:#20808D;width:0"></div></td>
+        </tr>
+        <tr>
+          <td style="color:#A84B2F;font-weight:600">T_3</td>
+          <td id="pt-t3-val">—</td>
+          <td class="pts" id="pt-t3">—</td>
+          <td class="bar-cell"><div class="points-bar" id="bar-t3" style="background:#A84B2F;width:0"></div></td>
+        </tr>
+        <tr>
+          <td style="color:#1B474D;font-weight:600">D_3</td>
+          <td id="pt-d3-val">—</td>
+          <td class="pts" id="pt-d3">—</td>
+          <td class="bar-cell"><div class="points-bar" id="bar-d3" style="background:#1B474D;width:0"></div></td>
+        </tr>
+        <tr style="font-weight:700;border-top:2px solid #28251D">
+          <td colspan="2">Итого (Total Score)</td>
+          <td class="pts" id="pt-total">—</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+    
+    <div class="equation-box" id="equation-box">—</div>
+  </div>
+  
+  <!-- SAVE -->
+  <div class="card">
+    <button class="save-btn" id="save-btn">Сохранить результат</button>
+    <textarea id="report-output" readonly></textarea>
+  </div>
+  
+  <div class="footer">
+    Модель: logit(P) = 42.0382 + (−0.0113)·M_3 + (−1.2227)·T_3 + (0.9358)·D_3<br>
+    AUC = 0.927 (95% CI: 0.896–0.954) &nbsp;|&nbsp; Bootstrap AUC = 0.924 &nbsp;|&nbsp; N = 348
+  </div>
+</div>
+
+<script>
+(function() {
+  // Model coefficients
+  const B0 = 42.03821325094188;
+  const B1 = -0.011267246797329584;
+  const B2 = -1.2227221136834907;
+  const B3 = 0.9357837997449162;
+  
+  // Points scale
+  const PPU = 5.111473489009155; // points per unit
+  const M3_MAX = 115, T3_MAX = 40;
+  
+  function m3Points(m3) { return PPU * Math.abs(B1) * (M3_MAX - m3); }
+  function t3Points(t3) { return PPU * Math.abs(B2) * (T3_MAX - t3); }
+  function d3Points(d3) { return PPU * Math.abs(B3) * d3; }
+  
+  function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+  
+  // DOM
+  const m3Slider = document.getElementById('m3-slider');
+  const t3Slider = document.getElementById('t3-slider');
+  const d3Btns = document.querySelectorAll('.d3-btn');
+  const m3Val = document.getElementById('m3-val');
+  const t3Val = document.getElementById('t3-val');
+  const d3Val = document.getElementById('d3-val');
+  
+  let currentD3 = 0;
+  
+  function update() {
+    const m3 = parseFloat(m3Slider.value);
+    const t3 = parseFloat(t3Slider.value);
+    const d3 = currentD3;
+    
+    m3Val.textContent = m3.toFixed(1);
+    t3Val.textContent = t3.toFixed(1);
+    d3Val.textContent = d3;
+    
+    // Calculate
+    const logit = B0 + B1 * m3 + B2 * t3 + B3 * d3;
+    const prob = sigmoid(logit);
+    const pct = (prob * 100);
+    
+    // Points
+    const ptsM3 = m3Points(m3);
+    const ptsT3 = t3Points(t3);
+    const ptsD3 = d3Points(d3);
+    const ptsTotal = ptsM3 + ptsT3 + ptsD3;
+    
+    // Display probability
+    const probDisplay = document.getElementById('prob-display');
+    probDisplay.textContent = pct.toFixed(1) + '%';
+    
+    // Color
+    let color;
+    if (prob < 0.2) color = '#437A22';
+    else if (prob < 0.5) color = '#D19900';
+    else if (prob < 0.8) color = '#A84B2F';
+    else color = '#A12C7B';
+    probDisplay.style.color = color;
+    
+    // Risk bar
+    const marker = document.getElementById('risk-marker');
+    marker.style.left = (prob * 100) + '%';
+    marker.style.background = color;
+    
+    // Risk text
+    const riskText = document.getElementById('risk-text');
+    if (prob < 0.2) { riskText.textContent = 'Низкий риск'; riskText.style.color = '#437A22'; }
+    else if (prob < 0.5) { riskText.textContent = 'Умеренный риск'; riskText.style.color = '#D19900'; }
+    else if (prob < 0.8) { riskText.textContent = 'Высокий риск'; riskText.style.color = '#A84B2F'; }
+    else { riskText.textContent = 'Очень высокий риск'; riskText.style.color = '#A12C7B'; }
+    
+    // Points table
+    document.getElementById('pt-m3-val').textContent = m3.toFixed(1) + '%';
+    document.getElementById('pt-t3-val').textContent = t3.toFixed(1) + '°C';
+    document.getElementById('pt-d3-val').textContent = d3;
+    document.getElementById('pt-m3').textContent = ptsM3.toFixed(1);
+    document.getElementById('pt-t3').textContent = ptsT3.toFixed(1);
+    document.getElementById('pt-d3').textContent = ptsD3.toFixed(1);
+    document.getElementById('pt-total').textContent = ptsTotal.toFixed(1);
+    
+    // Bars (proportional to max possible total ~117)
+    const maxPts = 117;
+    document.getElementById('bar-m3').style.width = (ptsM3 / maxPts * 100) + '%';
+    document.getElementById('bar-t3').style.width = (ptsT3 / maxPts * 100) + '%';
+    document.getElementById('bar-d3').style.width = (ptsD3 / maxPts * 100) + '%';
+    
+    // Equation
+    const eq = document.getElementById('equation-box');
+    eq.innerHTML = 
+      'logit = ' + B0.toFixed(4) + ' + (' + B1.toFixed(4) + ') × ' + m3.toFixed(1) +
+      ' + (' + B2.toFixed(4) + ') × ' + t3.toFixed(1) +
+      ' + (' + B3.toFixed(4) + ') × ' + d3 +
+      ' = <b>' + logit.toFixed(4) + '</b><br>' +
+      'P(death) = 1 / (1 + exp(−' + logit.toFixed(4) + ')) = <b>' + prob.toFixed(4) +
+      '</b> (' + pct.toFixed(1) + '%)';
+  }
+  
+  m3Slider.addEventListener('input', update);
+  t3Slider.addEventListener('input', update);
+  
+  d3Btns.forEach(btn => {
+    btn.addEventListener('click', function() {
+      d3Btns.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      currentD3 = parseInt(this.dataset.value);
+      update();
+    });
+  });
+  
+  // Save button
+  document.getElementById('save-btn').addEventListener('click', function() {
+    const m3 = parseFloat(m3Slider.value);
+    const t3 = parseFloat(t3Slider.value);
+    const d3 = currentD3;
+    const logit = B0 + B1 * m3 + B2 * t3 + B3 * d3;
+    const prob = sigmoid(logit);
+    
+    const now = new Date();
+    const dateStr = now.toLocaleString('ru-RU');
+    
+    const report = 
+      '═══════════════════════════════════════════════════════\n' +
+      'ПРОГНОЗ ЛЕТАЛЬНОГО ИСХОДА НА 3-И СУТКИ\n' +
+      'Дата расчёта: ' + dateStr + '\n' +
+      '═══════════════════════════════════════════════════════\n' +
+      'Параметры:\n' +
+      '  M_3 (масса тела, % от исходной): ' + m3.toFixed(1) + '%\n' +
+      '  T_3 (ректальная температура):    ' + t3.toFixed(1) + '°C\n' +
+      '  D_3 (выраженность диареи):       ' + d3 + ' балла\n' +
+      '───────────────────────────────────────────────────────\n' +
+      'Результат:\n' +
+      '  logit = ' + logit.toFixed(4) + '\n' +
+      '  P(death) = ' + (prob * 100).toFixed(1) + '%\n' +
+      '  Категория риска: ' + (prob < 0.2 ? 'НИЗКИЙ' : prob < 0.5 ? 'УМЕРЕННЫЙ' : prob < 0.8 ? 'ВЫСОКИЙ' : 'ОЧЕНЬ ВЫСОКИЙ') + '\n' +
+      '───────────────────────────────────────────────────────\n' +
+      'Баллы номограммы:\n' +
+      '  M_3: ' + m3Points(m3).toFixed(1) + '\n' +
+      '  T_3: ' + t3Points(t3).toFixed(1) + '\n' +
+      '  D_3: ' + d3Points(d3).toFixed(1) + '\n' +
+      '  Итого: ' + (m3Points(m3) + t3Points(t3) + d3Points(d3)).toFixed(1) + '\n' +
+      '═══════════════════════════════════════════════════════\n' +
+      'Модель: logit(P) = 42.04 + (−0.011)·M_3 + (−1.223)·T_3 + (0.936)·D_3\n' +
+      'AUC = 0.927 (95% CI: 0.896–0.954)\n';
+    
+    const textarea = document.getElementById('report-output');
+    textarea.style.display = 'block';
+    textarea.value = report;
+    textarea.select();
+    try { document.execCommand('copy'); } catch(e) {}
+  });
+  
+  // Initial
+  update();
+})();
+</script>
+</body>
+</html>
